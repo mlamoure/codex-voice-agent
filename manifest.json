@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "mlamoure.codex-voice-agent",
+  "name": "Codex Voice Agent",
+  "version": "2026.10.31",
+  "author": "Mike Lamoureux",
+  "license": "MIT",
+  "description": "Voice-enabled Codex session: listening state in the bar, history and controls in the popup, and a top-right reply card while the agent answers.",
+  "kinds": [
+    "service",
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "Widget.qml"
+  },
+  "barWidget": {
+    "displayName": "Codex Voice Agent",
+    "description": "Shows whether the voice agent is listening; click for history, mute, model and thinking level. Right- or middle-click toggles mute.",
+    "category": "Status",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

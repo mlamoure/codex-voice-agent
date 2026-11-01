@@ -1,0 +1,15 @@
+[Unit]
+Description=Codex Voice Agent (voice-enabled Codex session)
+After=graphical-session.target pipewire.service wireplumber.service
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/share/codex-voice-agent/venv/bin/codex-voice-agent daemon
+Restart=on-failure
+RestartSec=5
+# codex comes from mise; the session manager's PATH normally has it already.
+Environment=PATH=%h/.local/share/mise/shims:%h/.local/bin:/usr/share/omarchy/bin:/usr/local/bin:/usr/bin
+
+[Install]
+WantedBy=graphical-session.target
