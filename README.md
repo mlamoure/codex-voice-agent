@@ -5,6 +5,8 @@ a Codex session running in the background with a microphone you switch on and of
 request, and Codex does the work (reading files, running commands, answering questions) and
 tells you the answer out loud. A small face in the bar always shows whether it is listening.
 
+![Codex Voice Agent: the face in the bar, the reply card and the panel](preview.png)
+
 > **Unofficial.** This project is not made by, affiliated with, or endorsed by OpenAI or by
 > Omarchy/37signals. "Codex" refers to OpenAI's Codex CLI, which you install and sign in to
 > yourself.
@@ -27,14 +29,20 @@ tells you the answer out loud. A small face in the bar always shows whether it i
   | Eyes glance from side to side | Codex is working |
   | Eyes move with the voice | The agent is speaking |
 
+  ![The bar icon listening, muted, working and speaking](docs/screenshots/icon-states.png)
+
 - **Three ways to mute:** an optional global key, a right-click on the bar icon, or saying
   "mute yourself" / "stop listening" / "go to sleep". Each change shows an on-screen message.
 - **Reply card.** While the agent answers, a small card in the top-right corner shows its
   words and a live visualizer of its voice. It stays hidden over fullscreen windows.
+
+  ![The reply card with the voice visualizer](docs/screenshots/reply-card.png)
 - **Panel** (left-click the icon): status, mute, **Model** and **Thinking** level, **Microphone**,
   the session history (what you said, what Codex ran, its answers, safety-review decisions),
   a box to type a request, **New session**, and **Open in terminal** (`codex resume` this
   session).
+
+  ![The panel: status, mute, model, thinking level and microphone](docs/screenshots/panel.png)
 - **Echo cancellation** on the microphone, so the agent does not hear itself through your
   speakers (or a video playing in the background).
 
