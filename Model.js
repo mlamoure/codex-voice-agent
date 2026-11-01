@@ -118,12 +118,14 @@ function inputOptions(info) {
   return opts
 }
 
-// Codex output can be steered by what it reads, so its Markdown is shown without images
-// (no remote fetches when the panel opens) and only web links are ever opened.
-function sanitizeMarkdown(text) {
-  return String(text || "")
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "[image: $1]")
-    .replace(/<img\b[^>]*>/gi, "[image]")
+// What a history entry shows. Codex output can be steered by what it reads and Qt loads any
+// image a rich text names, so rich text is only ever the backend's rendering (`html`, built by
+// render.markdown_html with images removed) of a Codex entry; everything else is plain text.
+// Only web links are ever opened.
+function entryBody(entry) {
+  if (entry.kind === "review") return { text: reviewLabel(entry), rich: false }
+  if (entryStyle(entry.kind).markdown && typeof entry.html === "string") return { text: entry.html, rich: true }
+  return { text: String(entry.text || ""), rich: false }
 }
 
 function isSafeLink(url) {

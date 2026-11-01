@@ -55,8 +55,9 @@ tells you the answer out loud. A small face in the bar always shows whether it i
   `pw-record`, `pw-play`, `pw-cli` and `pw-dump`. All are in the Arch repositories:
   `omarchy-pkg-add uv jq rsync pipewire` (Omarchy ships PipeWire already).
 - A microphone and speakers or headphones.
-- Tested on aarch64 Omarchy. x86_64 should work the same (the Python dependencies, `aiortc`
-  and `numpy`, ship prebuilt wheels for both) but has not been tested yet.
+- Tested on aarch64 Omarchy. x86_64 should work the same (the Python dependencies, `aiortc`,
+  `numpy` and the pure-Python `markdown-it-py`, ship prebuilt wheels for both) but has not been
+  tested yet.
 
 ## Install
 
@@ -144,6 +145,10 @@ Old sessions remain available with `codex resume`.
   the text of requests that reach Codex is kept in its session history under `~/.codex`, as
   for any Codex session. While muted only silence is sent. The microphone itself stays open locally for 15 minutes
   after you mute (so unmuting is instant) and is then closed until the next unmute.
+- **Nothing in Codex's answers is loaded automatically.** What Codex reads can steer what it
+  writes, so the reply card shows answers as plain text, and the panel shows Codex's Markdown
+  only after the backend has rendered it with every image replaced by its description and raw
+  HTML shown as text. Links open only when you click them, and only `http(s)` links.
 - **The bar plugin runs unsandboxed** inside `omarchy-shell`, like every Omarchy plugin. Read
   the code before installing it.
 

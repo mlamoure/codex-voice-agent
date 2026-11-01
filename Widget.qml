@@ -234,9 +234,9 @@ Panel {
             }
             Text {
               width: parent.width
-              text: entry.modelData.kind === "review" ? Model.reviewLabel(entry.modelData)
-                    : entry.style.markdown ? Model.sanitizeMarkdown(entry.modelData.text) : entry.modelData.text
-              textFormat: entry.style.markdown ? Text.MarkdownText : Text.PlainText
+              readonly property var body: Model.entryBody(entry.modelData)
+              text: body.text
+              textFormat: body.rich ? Text.RichText : Text.PlainText
               wrapMode: Text.Wrap
               maximumLineCount: entry.style.role === "tool" ? 3 : 40
               elide: Text.ElideRight

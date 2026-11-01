@@ -28,6 +28,7 @@ import numpy as np
 
 from . import TESTED_CODEX_VERSION, __version__
 from .appserver import AppServer, AppServerError
+from .render import markdown_html
 from .audio import peak, spectrum_bands
 from .config import Config, State, socket_path
 
@@ -473,7 +474,7 @@ class Daemon:
             if not text:
                 return
             final = item.get("phase") != "commentary"
-            self._add("codex" if final else "codex_note", text)
+            self._add("codex" if final else "codex_note", text, html=markdown_html(text))
             if final and not (self.voice and self.voice.connected):
                 # No voice to speak it: still show the reply card for typed requests.
                 await self._broadcast({"event": "reply", "phase": "done", "voice": False, "text": text})
@@ -575,8 +576,11 @@ class Daemon:
         self._notice("Approved the denied action; Codex will retry it.")
 
     # ------------------------------------------------------------------ history
-    def _add(self, kind: str, text: str, status: str | None = None, detail: dict | None = None) -> None:
+    def _add(self, kind: str, text: str, status: str | None = None, detail: dict | None = None,
+             html: str | None = None) -> None:
         entry = {"id": uuid.uuid4().hex[:12], "kind": kind, "text": text, "ts": time.time()}
+        if html is not None:
+            entry["html"] = html  # Codex Markdown, rendered safe by render.markdown_html
         if status:
             entry["status"] = status
         if detail:

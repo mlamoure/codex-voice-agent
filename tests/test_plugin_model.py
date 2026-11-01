@@ -81,10 +81,13 @@ def test_unmuted_without_a_voice_link_is_not_listening():
     assert js(f"micState(true, {json.dumps({**ST, 'voice': 'connecting'})})") == "listening"
 
 
-def test_markdown_from_codex_is_shown_without_images():
-    md = "see ![tracker](https://evil.example/p.png) and <img src='https://x/y.png'> ok"
-    out = js(f"sanitizeMarkdown({json.dumps(md)})")
-    assert "https://evil" not in out and "<img" not in out and "[image: tracker]" in out
+def test_only_codex_entries_rendered_by_the_backend_are_rich_text():
+    assert js('entryBody({kind: "codex", text: "*hi*", html: "<p><em>hi</em></p>"})') == \
+        {"text": "<p><em>hi</em></p>", "rich": True}
+    # no backend rendering (or not a Codex entry): the raw text, as plain text
+    assert js('entryBody({kind: "codex", text: "<img src=x>"})') == {"text": "<img src=x>", "rich": False}
+    assert js('entryBody({kind: "you_typed", text: "a", html: "<img src=x>"})') == {"text": "a", "rich": False}
+    assert js('entryBody({kind: "command", text: "ls", html: "<b>x</b>"})')["rich"] is False
 
 
 def test_only_web_links_open():

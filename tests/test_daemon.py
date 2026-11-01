@@ -104,6 +104,11 @@ def test_typed_request_history_and_reply_card(env):
         # the typed message appears once (our copy), not again from Codex's userMessage item
         assert kinds.count("you_typed") == 1
         assert "command" in kinds and "codex" in kinds
+        # Codex entries carry the backend's image-free rendering; others never do
+        items = (await c.cmd("history"))["items"]
+        codex = next(i for i in items if i["kind"] == "codex")
+        assert codex["html"] == "<p>done: hello</p>"
+        assert all("html" not in i for i in items if i["kind"] not in ("codex", "codex_note"))
         turn = requests(log, "turn/start")[0]["params"]
         assert turn["model"] == "model-a" and turn["effort"] == "low"
         d.stop(); await task

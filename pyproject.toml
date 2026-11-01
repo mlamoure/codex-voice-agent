@@ -1,6 +1,6 @@
 [project]
 name = "codex-voice-agent"
-version = "2026.11.1"
+version = "2026.11.1.1"
 description = "Voice-enabled Codex session in the Omarchy bar"
 requires-python = ">=3.12"
 license = "MIT"
@@ -8,6 +8,9 @@ license-files = ["LICENSE"]
 dependencies = [
     "aiortc>=1.15",
     "numpy>=2.0",
+    # Renders Codex Markdown for the panel (render.py); pinned so the safety-checked output
+    # cannot change under an install.
+    "markdown-it-py==4.2.0",
 ]
 
 [project.optional-dependencies]
