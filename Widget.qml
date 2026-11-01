@@ -184,6 +184,7 @@ Panel {
             required property var modelData
             width: column.width
             text: Model.GLYPH_WARN + "  " + modelData
+            textFormat: Text.PlainText  // errors can carry Codex text
             color: Color.urgent
             wrapMode: Text.Wrap
             font.family: Style.font.family

@@ -117,6 +117,9 @@ PanelWindow {
         Text {
           width: parent.width
           text: Model.cardText(win.service.cardTextFull, 260) || "…"
+          // Codex output can be steered by what it reads: plain text, so an <img> in an answer
+          // never makes the desktop fetch a URL when the card appears.
+          textFormat: Text.PlainText
           color: win.fg
           wrapMode: Text.Wrap
           maximumLineCount: 5

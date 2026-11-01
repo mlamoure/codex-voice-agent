@@ -52,3 +52,25 @@ def test_omarchy_validates_the_staged_plugin(tmp_path):
         shutil.copy2(f, tmp_path / f.name)
     result = subprocess.run(["omarchy", "plugin", "validate", str(tmp_path)], capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def qml_text_blocks(source: str) -> list[str]:
+    """Every `Text { ... }` element in a QML file, braces matched."""
+    blocks = []
+    for m in re.finditer(r"\bText\s*\{", source):
+        depth, i = 0, m.end() - 1
+        while True:
+            depth += {"{": 1, "}": -1}.get(source[i], 0)
+            i += 1
+            if depth == 0:
+                break
+        blocks.append(source[m.start():i])
+    return blocks
+
+
+def test_text_from_codex_never_renders_html():
+    # A Text without textFormat is AutoText: an <img src> in Codex output would be fetched.
+    for qml in ROOT.glob("*.qml"):
+        for block in qml_text_blocks(qml.read_text()):
+            if re.search(r"cardTextFull|modelData", block):
+                assert "textFormat:" in block, f"{qml.name}: {block.splitlines()[1].strip()}"
