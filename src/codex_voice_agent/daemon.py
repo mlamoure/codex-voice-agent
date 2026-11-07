@@ -22,6 +22,7 @@ import subprocess
 import time
 import uuid
 from collections import deque
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -133,6 +134,8 @@ class Daemon:
         self.dictation_pauses: dict[str, str] = {}
         self.dictation_monitor = "disabled"
         self._dictation_seen = False
+        self._dictation_task = None
+        self._dictation_lock = asyncio.Lock()
         self.voice = None
         self.voice_status = "off"      # off | connecting | on | error
         self.working = False
@@ -156,16 +159,13 @@ class Daemon:
     async def run(self) -> None:
         self.warnings.extend(getattr(self.config, "problems", []))
         self.codex_version = await asyncio.to_thread(codex_version, self.config.codex_command)
-        if self.config.dictation_auto_pause and shutil.which("superwhisper"):
-            self.dictation_pauses["adapter:superwhisper"] = "Superwhisper"
+        await self._configure_dictation_monitor()
         await self._start_server()
         if self.voice_factory is None:
             # aiortc/PyAV take ~2 s to import; do it now so the first unmute is quick.
             self._spawn(asyncio.to_thread(importlib.import_module, "codex_voice_agent.voice"))
         tasks = [asyncio.create_task(self._supervise_codex()),
                  asyncio.create_task(self._tick())]
-        if self.config.dictation_auto_pause:
-            tasks.append(asyncio.create_task(watch_superwhisper(self._superwhisper_status)))
         if self.config.check_updates:
             tasks.append(asyncio.create_task(self._check_updates()))
         await self._stopping.wait()
@@ -190,6 +190,10 @@ class Daemon:
         return task
 
     async def _shutdown(self) -> None:
+        if self._dictation_task:
+            self._dictation_task.cancel()
+            await asyncio.gather(self._dictation_task, return_exceptions=True)
+            self._dictation_task = None
         await self._close_voice()
         if self.app:
             await self.app.stop()
@@ -311,6 +315,7 @@ class Daemon:
             "userMuted": self.user_muted,
             "dictationPauses": sorted(set(self.dictation_pauses.values())),
             "dictationMonitor": self.dictation_monitor,
+            "dictationAutoPause": self.dictation_auto_pause,
             "listening": not self.muted and self.voice_status == "on",
             "voice": self.voice_status,
             "working": self.working,
@@ -355,6 +360,42 @@ class Daemon:
         self.user_muted = (not self.user_muted) if value == "toggle" else bool(value)
         await self._mute_state_changed(was_muted)
         return self.muted
+
+    @property
+    def dictation_auto_pause(self) -> bool:
+        choice = self.state.dictation_auto_pause
+        return self.config.dictation_auto_pause if choice is None else choice
+
+    async def _configure_dictation_monitor(self) -> None:
+        if self._dictation_task:
+            self._dictation_task.cancel()
+            await asyncio.gather(self._dictation_task, return_exceptions=True)
+            self._dictation_task = None
+        key = "adapter:superwhisper"
+        if not self.dictation_auto_pause:
+            if key in self.dictation_pauses:
+                self.user_muted = True  # turning off protection must not open the mic
+            self.dictation_pauses.pop(key, None)
+            self.dictation_monitor = "disabled"
+            self._dictation_seen = False
+        else:
+            if shutil.which("superwhisper"):
+                self.dictation_pauses[key] = "Superwhisper"
+                self.dictation_monitor = "connecting"
+            self._dictation_task = asyncio.create_task(watch_superwhisper(self._superwhisper_status))
+
+    async def set_dictation_auto_pause(self, value: bool) -> None:
+        if not isinstance(value, bool):
+            raise ValueError("dictation auto-pause must be a boolean")
+        async with self._dictation_lock:
+            # Save a candidate first: IO failure leaves the live preference unchanged.
+            candidate = replace(self.state, dictation_auto_pause=value)
+            candidate.save()
+            was_enabled, was_muted = self.dictation_auto_pause, self.muted
+            self.state.dictation_auto_pause = value
+            if was_enabled != value:
+                await self._configure_dictation_monitor()
+            await self._mute_state_changed(was_muted)
 
     async def _superwhisper_status(self, active: bool | None, error: str | None) -> None:
         was_muted = self.muted
@@ -751,6 +792,9 @@ class Daemon:
                 return {"ok": True, **self.snapshot()}
             if cmd == "history":
                 return {"ok": True, "items": list(self.history)}
+            if cmd == "set_dictation_auto_pause":
+                await self.set_dictation_auto_pause(req.get("value"))
+                return {"ok": True}
             if cmd == "dictation_acquire":
                 token = await self.acquire_dictation(req.get("source"))
                 return {"ok": True, "token": token, "muted": self.muted}

@@ -148,3 +148,13 @@ function updateText(st) {
   if (!st || !st.update || !st.update.version) return ""
   return "Codex Voice Agent " + st.update.version + " is available (you have " + (st.version || "?") + ")."
 }
+
+function dictationStatus(st) {
+  if (st.dictationAutoPause === undefined) return "Backend unavailable"
+  if (!st.dictationAutoPause) return "Automatic detection off"
+  if (st.dictationMonitor === "idle") return "Superwhisper detected · ready"
+  if (st.dictationMonitor === "active") return "Superwhisper detected · dictation active"
+  if (st.dictationMonitor === "not installed") return "No supported app detected"
+  if (st.dictationMonitor === "connecting") return "Connecting to Superwhisper…"
+  return "Monitoring unavailable"
+}

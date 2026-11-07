@@ -152,6 +152,7 @@ class State:
     """Choices made in the panel; survive restarts (the session itself does not)."""
     model: str | None = None
     effort: str | None = None
+    dictation_auto_pause: bool | None = None  # panel override; None inherits config.toml
     reply_card: bool = True
     input: str | None = None  # microphone (PipeWire node name); None = system default
     notified_update: str | None = None  # newest release already announced with a notification
@@ -168,7 +169,9 @@ class State:
         def text(key):
             value = data.get(key)
             return value if isinstance(value, str) and value else None
-        return cls(model=text("model"), effort=text("effort"),
+        pause = data.get("dictation_auto_pause")
+        return cls(dictation_auto_pause=pause if isinstance(pause, bool) else None,
+                   model=text("model"), effort=text("effort"),
                    reply_card=data.get("reply_card") is not False, input=text("input"),
                    notified_update=text("notified_update"))
 
@@ -177,5 +180,6 @@ class State:
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps({"model": self.model, "effort": self.effort,
                                    "reply_card": self.reply_card, "input": self.input,
+                                   "dictation_auto_pause": self.dictation_auto_pause,
                                    "notified_update": self.notified_update}, indent=2))
         tmp.replace(path)

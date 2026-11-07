@@ -31,6 +31,16 @@ Panel {
   // (OmacVM's notch display), the pointer is not, so focus would fall back to the app window
   // and typing would go there. In that case hold exclusive focus until the pointer reaches
   // the panel. Where focus is kept anyway (the usual single-output bar) nothing changes.
+  property bool settingsOpen: false
+  function showSettings(value) {
+    settingsOpen = value
+    if (value && svc) svc.refreshInputs()
+    Qt.callLater(function() { panel.focusTarget.forceActiveFocus() })
+  }
+  function backOrClose() {
+    if (settingsOpen) showSettings(false)
+    else close()
+  }
   property bool holdFocus: false
   property bool pointerVisited: false
   readonly property bool panelActive: !!input.Window.active
@@ -41,6 +51,7 @@ Panel {
     }
   }
   onOpenedChanged: if (opened) {
+    settingsOpen = false
     holdFocus = false
     pointerVisited = false
     if (svc) svc.refreshInputs()
@@ -83,7 +94,7 @@ Panel {
     bar: root.bar
     open: root.opened
     // Open straight into the "Ask Codex" field; Escape there closes the panel.
-    focusTarget: root.connected ? input : keyCatcher
+    focusTarget: root.settingsOpen ? keyCatcher : (root.connected ? input : keyCatcher)
     WlrLayershell.keyboardFocus: !open ? WlrKeyboardFocus.None
       : (focusPrimed && !root.holdFocus ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive)
     contentWidth: panel.fittedContentWidth(Style.space(440))
@@ -93,7 +104,7 @@ Panel {
       id: keyCatcher
       anchors.fill: parent
       blocked: modelDrop.popupOpen || effortDrop.popupOpen || micDrop.popupOpen || input.activeFocus
-      onCloseRequested: root.close()
+      onCloseRequested: root.backOrClose()
 
       HoverHandler {
         onHoveredChanged: if (hovered) { root.pointerVisited = true; root.holdFocus = false }
@@ -102,7 +113,7 @@ Panel {
       onTextKey: function(t) {
         var key = t.toLowerCase()
         if (key === "m" && root.svc) root.svc.toggleMute()
-        else if (key === "/" || key === "i") input.forceActiveFocus()
+        else if (!root.settingsOpen && (key === "/" || key === "i")) input.forceActiveFocus()
       }
 
       Column {
@@ -193,6 +204,17 @@ Panel {
           }
         }
 
+        Button {
+          bordered: true
+          text: root.settingsOpen ? "← Back" : "⚙ Settings" + (root.st.update ? " •" : "")
+          tooltipText: root.settingsOpen ? "Return to conversation" : "Microphone, dictation and display preferences"
+          onClicked: root.showSettings(!root.settingsOpen)
+        }
+
+        Column {
+          width: parent.width
+          spacing: Style.space(10)
+          visible: root.settingsOpen
         // ---------------------------------------------------- microphone
         Dropdown {
           id: micDrop
@@ -202,6 +224,58 @@ Panel {
           options: Model.inputOptions(root.svc ? root.svc.inputInfo : null)
           value: root.st.input || ""
           onChanged: function(v) { if (v !== (root.st.input || "")) root.svc.setInput(v) }
+        }
+
+          Row {
+            width: parent.width
+            spacing: Style.space(8)
+            Text {
+              width: parent.width - pauseToggle.width - parent.spacing
+              text: "Automatically pause for dictation"
+              color: root.fg
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
+              wrapMode: Text.Wrap
+            }
+            ToggleSwitch {
+              id: pauseToggle
+              enabled: root.connected
+              checked: root.st.dictationAutoPause === true
+              onToggled: root.svc.setDictationAutoPause(!checked)
+            }
+          }
+          Text {
+            width: parent.width
+            text: "Pause listening while a supported transcription app is active.\n" + Model.dictationStatus(root.st)
+            textFormat: Text.PlainText
+            color: root.dim
+            font.family: Style.font.family
+            font.pixelSize: Style.font.bodySmall
+            wrapMode: Text.Wrap
+          }
+          Row {
+            width: parent.width
+            spacing: Style.space(8)
+            Text {
+              width: parent.width - replyToggle.width - parent.spacing
+              text: "Show reply card"
+              color: root.fg
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
+            }
+            ToggleSwitch {
+              id: replyToggle
+              enabled: root.connected
+              checked: root.st.replyCard !== false
+              onToggled: root.svc.setReplyCard(!checked)
+            }
+          }
+          Text {
+            text: "Version " + (root.st.version || "unavailable")
+            color: root.dim
+            font.family: Style.font.family
+            font.pixelSize: Style.font.bodySmall
+          }
         }
 
         // ---------------------------------------------------- warnings / errors
@@ -224,7 +298,7 @@ Panel {
           id: updateNotice
           width: parent.width
           spacing: Style.space(4)
-          visible: Model.updateText(root.st) !== ""
+          visible: root.settingsOpen && Model.updateText(root.st) !== ""
           Text {
             width: parent.width
             text: Model.GLYPH_UPDATE + "  " + Model.updateText(root.st)
@@ -257,9 +331,10 @@ Panel {
         // ---------------------------------------------------- history
         ListView {
           id: history
+          visible: !root.settingsOpen
           width: parent.width
           // the panel has a maximum height: the update notice takes its room from the history
-          height: Style.space(360) - (updateNotice.visible ? updateNotice.height + column.spacing : 0)
+          height: Style.space(300)
           clip: true
           spacing: Style.space(8)
           boundsBehavior: Flickable.StopAtBounds
@@ -267,7 +342,7 @@ Panel {
           ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
           property bool pinnedToEnd: true
           onMovementEnded: pinnedToEnd = atYEnd
-          onCountChanged: if (pinnedToEnd) Qt.callLater(positionViewAtEnd)
+          onCountChanged: if (pinnedToEnd && !root.settingsOpen) Qt.callLater(positionViewAtEnd)
 
           Text {
             anchors.centerIn: parent
@@ -322,7 +397,7 @@ Panel {
         Row {
           width: parent.width
           spacing: Style.space(8)
-          visible: root.connected
+          visible: root.connected && !root.settingsOpen
           TextField {
             id: input
             width: parent.width - sendButton.width - parent.spacing
@@ -344,7 +419,7 @@ Panel {
         Row {
           width: parent.width
           spacing: Style.space(8)
-          visible: root.connected
+          visible: root.connected && !root.settingsOpen
           Button {
             iconText: Model.GLYPH_NEW
             text: "New session"
@@ -356,19 +431,7 @@ Panel {
             tooltipText: "codex resume this session"
             onClicked: { root.svc.openTerminal(); root.close() }
           }
-          Item { width: 1; height: 1 }
-          Text {
-            anchors.verticalCenter: parent.verticalCenter
-            text: "Reply card"
-            color: root.dim
-            font.family: Style.font.family
-            font.pixelSize: Style.font.bodySmall
-          }
-          ToggleSwitch {
-            anchors.verticalCenter: parent.verticalCenter
-            checked: root.st.replyCard !== false
-            onToggled: root.svc.setReplyCard(!checked)
-          }
+
         }
       }
     }
