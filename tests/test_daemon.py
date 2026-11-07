@@ -240,19 +240,6 @@ def test_speaking_drives_spectrum_events(env):
     run(body())
 
 
-def test_untested_codex_version_warns(env, monkeypatch):
-    tmp, _ = env
-    monkeypatch.setenv("FAKE_CODEX_VERSION", "codex-cli 9.9.9")
-
-    async def body():
-        d = make_daemon(tmp, [])
-        task, c = await start(d, tmp)
-        st = await c.cmd("state")
-        assert any("9.9.9" in w for w in st["warnings"])
-        d.stop(); await task
-    run(body())
-
-
 def test_second_daemon_refuses_same_socket(env):
     tmp, _ = env
 

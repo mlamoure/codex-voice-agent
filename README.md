@@ -12,8 +12,8 @@ tells you the answer out loud. A small face in the bar always shows whether it i
 > yourself.
 
 > **Experimental.** Voice uses the Codex app-server's realtime API, which Codex marks as
-> experimental. A Codex update can change it; the panel warns you when your Codex version
-> differs from the one this release was tested with.
+> experimental. A Codex update can change it; if voice stops working after a Codex update,
+> check for a newer release of this project.
 
 ## Features
 
@@ -49,7 +49,7 @@ tells you the answer out loud. A small face in the bar always shows whether it i
 ## Requirements
 
 - **Omarchy 4** (the Quickshell-based `omarchy-shell` bar).
-- **Codex CLI**, installed and signed in (`codex login`). Tested with Codex **0.166.0**, signed
+- **Codex CLI**, installed and signed in (`codex login`). Last tested with Codex **0.166.0**, signed
   in with a ChatGPT account. An API key is not needed.
 - **uv** (fetches Python 3.13 for the backend), **jq**, **rsync**, and the **PipeWire** tools
   `pw-record`, `pw-play`, `pw-cli` and `pw-dump`. All are in the Arch repositories:
@@ -191,7 +191,6 @@ codex-voice-agent daemon [-v]             the service itself
 | A warning about config.toml in the panel | A setting has a typo or the wrong type; that setting falls back to its default until fixed |
 | It does not hear you | Is it unmuted (accent face)? Is the right microphone selected? Test the device with `pw-record --target <device> test.wav` |
 | It hears itself / talks over itself | Make sure `echo_cancel` is on; use headphones in a very echoey room |
-| "Codex x.y.z is untested" | Voice may misbehave on that version; check for a newer release of this project |
 | Widget missing after install | `omarchy plugin enable <plugin-id> --section right`; QML errors are in `journalctl --user -t omarchy-shell` |
 
 Run the backend in the foreground with debug logs: `systemctl --user stop codex-voice-agent`,

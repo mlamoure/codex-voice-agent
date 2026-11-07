@@ -26,7 +26,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import TESTED_CODEX_VERSION, __version__
+from . import __version__
 from .appserver import AppServer, AppServerError
 from .render import markdown_html
 from .audio import peak, spectrum_bands
@@ -149,9 +149,6 @@ class Daemon:
     async def run(self) -> None:
         self.warnings.extend(getattr(self.config, "problems", []))
         self.codex_version = await asyncio.to_thread(codex_version, self.config.codex_command)
-        if self.codex_version and self.codex_version != TESTED_CODEX_VERSION:
-            self.warnings.append(f"Codex {self.codex_version} is untested (built for {TESTED_CODEX_VERSION}); "
-                                 "voice may misbehave.")
         await self._start_server()
         if self.voice_factory is None:
             # aiortc/PyAV take ~2 s to import; do it now so the first unmute is quick.

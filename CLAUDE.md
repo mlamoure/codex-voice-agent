@@ -5,7 +5,8 @@ Assistant workflow for this repo. User docs are in README.md.
 ## Layout
 - `src/codex_voice_agent/` — backend: `daemon.py` (session, mute/voice lifecycle, history, control
   socket), `voice.py` (WebRTC realtime link), `audio.py` (PipeWire, echo cancel, spectrum),
-  `appserver.py` (codex app-server JSON-RPC), `config.py`, `cli.py`.
+  `appserver.py` (codex app-server JSON-RPC), `render.py` (Codex Markdown → image-free HTML for
+  the panel), `config.py`, `cli.py`.
 - Repository root = the omarchy-shell plugin `mlamoure.codex-voice-agent` (`service` +
   `bar-widget`): `manifest.json`, `*.qml`, `Model.js` (marketplace layout: one plugin, manifest at
   the root). `Service.qml` is the single instance that owns the socket and the reply card;
@@ -42,10 +43,28 @@ Assistant workflow for this repo. User docs are in README.md.
 - `pw-record` needs `--raw` on stdout (otherwise a Sun AU header). The echo canceller lives
   as long as the `pw-cli` process that loaded it.
 - Importing aiortc/PyAV takes ~2 s; the daemon pre-imports it so the first unmute is quick.
+- Qt loads every image a rich text (`RichText`, `MarkdownText`, `AutoText` that looks like HTML)
+  names, the moment it is shown: Markdown images in all forms (inline, reference, shortcut,
+  nested-bracket alt) and HTML `<img>`, `background` attributes and CSS backgrounds (probed with
+  qml6). Codex text is therefore `PlainText`, or `RichText` only from `render.markdown_html`.
 - Unix socket paths must be < 108 chars (use `$XDG_RUNTIME_DIR` in tests/harnesses).
 - In some macOS-hosted VMs a Mac keyboard's record/dictation key and fn+F5 both arrive as plain
   `KEY_F5`, so binding F5 is the only way to use that key.
 
-## Bumping the tested Codex version
-Re-check voice end to end (unmute, speak a request that needs a command, hear the answer)
-and `item/autoApprovalReview/*` before changing `TESTED_CODEX_VERSION`.
+## Codex versions
+There is deliberately no installed-vs-tested Codex version check (removed 2026.11.6: Codex
+releases too often to keep a pin current). After a Codex update, re-check voice end to end
+(unmute, speak a request that needs a command, hear the answer) and `item/autoApprovalReview/*`.
+
+## Releasing
+- Versions are dates, `YEAR.MONTH.DAY` without leading zeros: set them in `manifest.json`,
+  `pyproject.toml` and `src/codex_voice_agent/__init__.py`. A second release on the same day
+  appends `.N` (`2026.11.1.1`); `omarchy plugin update` is git-based and never compares versions.
+- Merge to `main`, then create the Gitea release `vYYYY.M.D` (tag on the merge commit).
+- The public repository (GitHub `mlamoure/codex-voice-agent`) does not share this history:
+  export the tagged tree (`git archive vYYYY.M.D`), scan it for anything machine- or
+  person-specific, and commit it on top of the public `main` as one release commit, authored with
+  the GitHub noreply address; tag it and create a GitHub release with the same notes.
+- The marketplace listing (omarchyplugins.com, repo `omacom/omarchy-plugin-marketplace`) updates
+  through its "Plugin verification" issue form: plugin ID, repository URL and the full 40-character
+  release SHA. The plugin ID `mlamoure.codex-voice-agent` is permanent.
