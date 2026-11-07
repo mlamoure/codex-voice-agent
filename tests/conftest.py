@@ -95,6 +95,7 @@ def env(tmp_path, monkeypatch):
 
 
 def make_daemon(tmp_path, osd_calls, **cfg):
+    cfg.setdefault("dictation_auto_pause", False)  # never launch a real transcriber
     cfg.setdefault("check_updates", False)  # never reach GitHub from the suite
     config = Config(workdir=tmp_path, codex_command=[sys.executable, str(FAKE)], **cfg)
     state = State()

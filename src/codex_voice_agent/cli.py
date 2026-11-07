@@ -74,6 +74,10 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("-v", "--verbose", action="store_true")
     m = sub.add_parser("mute")
     m.add_argument("value", nargs="?", default="toggle", choices=["toggle", "on", "off"])
+    dp = sub.add_parser("dictation", help="acknowledged dictation pause hooks")
+    ds = dp.add_subparsers(dest="action", required=True)
+    ds.add_parser("acquire").add_argument("source")
+    ds.add_parser("release").add_argument("token")
     sub.add_parser("state")
     sub.add_parser("history")
     s = sub.add_parser("send")
@@ -90,6 +94,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "mute":
             value = {"toggle": "toggle", "on": True, "off": False}[args.value]
             reply = request({"cmd": "mute", "value": value})
+        elif args.command == "dictation":
+            payload = {"source": args.source} if args.action == "acquire" else {"token": args.token}
+            reply = request({"cmd": "dictation_" + args.action, **payload})
         elif args.command == "state":
             reply = request({"cmd": "state"})
         elif args.command == "history":

@@ -142,6 +142,67 @@ nothing is. Unmute to reconnect.
 **Typing instead of talking:** use the box at the bottom of the panel, or
 `codex-voice-agent send "your request"`. Typed requests go straight to Codex.
 
+### Pause automatically for dictation
+
+Superwhisper for Linux is detected automatically. While it reports a non-idle state
+(recording or processing), the agent sends silence instead of your microphone audio.
+The icon closes its eyes and the panel says **Paused for Superwhisper**. Once Superwhisper
+reports idle, listening resumes only if you have not manually muted it. During a pause,
+the panel offers **Stay muted** or **Resume after dictation**; the mute key and right-click
+change the same choice. A temporary pause never cancels a Codex task. The agent can still
+speak a reply, just as when manually muted.
+
+One backend watcher runs `superwhisper status --bar --follow`; it does not change shortcuts,
+read dictation history, or depend on a bar widget or monitor layout. Disable automatic
+monitoring with `dictation_auto_pause = false` in config.toml and restart the service.
+The panel/state output reports the monitor's status. Missing Superwhisper leaves normal
+manual operation available. A broken status stream latches manual mute; reconnecting alone
+will not turn the microphone back on. Re-enable listening explicitly after recovery.
+
+**Timing:** this is reactive status monitoring, not exclusive ownership of the microphone.
+Some audio may already have reached Codex before the recording notification arrives. It
+cannot guarantee zero overlap. Queued microphone frames are discarded when muting/resuming.
+For strict sequencing, a transcription tool needs a pre-record hook that waits for the
+pause acknowledgement before starting capture. Already transmitted audio cannot be recalled.
+
+| Integration | Support |
+|---|---|
+| Superwhisper Linux CLI exposing `status --bar --follow` JSON with an `alt` state | Automatic; only explicit `idle` resumes, unfamiliar states keep the agent paused |
+| Other tools with pre-record/finish hooks | Use the acknowledged pause API below |
+| Other tools without hooks or status integration | Manual mute; no automatic detection is claimed |
+| macOS Superwhisper controlling a Linux VM | Not detected by the Linux adapter |
+
+The automatic adapter reads the CLI's status only; cloud and offline dictation use the same
+mechanism. Backend tests cover simulated failures and state transitions. The live integration
+is verified on aarch64 Omarchy; x86_64 follows the same CLI contract but is not yet live-tested.
+
+### Integrating another transcription tool
+
+Before recording, run `codex-voice-agent dictation acquire "Tool name"`. Check its successful
+exit status and JSON `ok: true`, then save its `token`. Only then start capture. In the
+finish/cancel/error hook, run `codex-voice-agent dictation release TOKEN` with that exact token.
+Each acquisition has its own token: overlapping recordings cannot release each other's pause.
+These commands also work when automatic Superwhisper detection is disabled.
+
+The same protocol is available over the user's private Unix control socket:
+
+```json
+{"id":1,"cmd":"dictation_acquire","source":"Example transcriber"}
+{"id":2,"cmd":"dictation_release","token":"TOKEN_FROM_ACQUIRE_REPLY"}
+```
+
+The acquire response includes `ok`, `token`, and `muted: true`. Release returns the effective
+`muted` state, which may remain true due to manual mute or another tool. No speech or transcript
+is needed. Sources are display labels, limited to 64 ASCII letters/numbers/spaces/`._-` and
+must start with a letter or number. At most 128 pauses may be outstanding.
+
+Hooks must fail closed: if acquire fails, do not start recording. Tokens do not expire or get
+released when the hook command exits, since recording usually continues in another process.
+Always retain the token for cleanup. If a recorder crashes, release its saved token only after
+confirming capture has stopped. Lost tokens require restarting the voice-agent service, which
+starts muted. A service restart invalidates old tokens; it never automatically restores listening.
+This API orders *future* microphone transmission; it cannot retract audio already in flight.
+
 **Choosing a microphone:** the panel's **Microphone** list starts with *System default (…)*,
 which follows whatever input your system uses. Pick another device to override it; the choice
 is remembered and applied immediately.
@@ -190,6 +251,7 @@ osd = true                           # on-screen messages when muting and unmuti
 voice_mute_command = true            # "mute yourself" / "stop listening" mutes the agent
 codex_command = ["codex"]            # how to run Codex, if it is not on the service's PATH
 check_updates = true                 # check GitHub once a day for a newer release
+dictation_auto_pause = true          # automatically pause for Superwhisper Linux
 ```
 
 ## Command line
@@ -201,6 +263,8 @@ codex-voice-agent history                 this session's history as JSON
 codex-voice-agent send "text"             type a request to Codex
 codex-voice-agent new-session             start a fresh Codex session
 codex-voice-agent watch                   print live events (debugging)
+codex-voice-agent dictation acquire NAME   pause and return a unique token
+codex-voice-agent dictation release TOKEN  release only that pause
 codex-voice-agent daemon [-v]             the service itself
 ```
 

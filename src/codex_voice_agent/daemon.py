@@ -27,6 +27,7 @@ from pathlib import Path
 import numpy as np
 
 from . import __version__, update
+from .dictation import watch_superwhisper
 from .appserver import AppServer, AppServerError
 from .render import markdown_html
 from .audio import peak, spectrum_bands
@@ -128,7 +129,10 @@ class Daemon:
         self.warnings: list[str] = []
         self.available_update: dict | None = None  # {"version", "url"} of a newer release, if any
 
-        self.muted = True
+        self.user_muted = True
+        self.dictation_pauses: dict[str, str] = {}
+        self.dictation_monitor = "disabled"
+        self._dictation_seen = False
         self.voice = None
         self.voice_status = "off"      # off | connecting | on | error
         self.working = False
@@ -152,17 +156,22 @@ class Daemon:
     async def run(self) -> None:
         self.warnings.extend(getattr(self.config, "problems", []))
         self.codex_version = await asyncio.to_thread(codex_version, self.config.codex_command)
+        if self.config.dictation_auto_pause and shutil.which("superwhisper"):
+            self.dictation_pauses["adapter:superwhisper"] = "Superwhisper"
         await self._start_server()
         if self.voice_factory is None:
             # aiortc/PyAV take ~2 s to import; do it now so the first unmute is quick.
             self._spawn(asyncio.to_thread(importlib.import_module, "codex_voice_agent.voice"))
         tasks = [asyncio.create_task(self._supervise_codex()),
                  asyncio.create_task(self._tick())]
+        if self.config.dictation_auto_pause:
+            tasks.append(asyncio.create_task(watch_superwhisper(self._superwhisper_status)))
         if self.config.check_updates:
             tasks.append(asyncio.create_task(self._check_updates()))
         await self._stopping.wait()
         for task in tasks:
             task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
         await self._shutdown()
 
     def stop(self) -> None:
@@ -299,6 +308,9 @@ class Daemon:
             "threadId": self.thread_id,
             "workdir": str(self.config.workdir),
             "muted": self.muted,
+            "userMuted": self.user_muted,
+            "dictationPauses": sorted(set(self.dictation_pauses.values())),
+            "dictationMonitor": self.dictation_monitor,
             "listening": not self.muted and self.voice_status == "on",
             "voice": self.voice_status,
             "working": self.working,
@@ -314,17 +326,74 @@ class Daemon:
         }
 
     # ------------------------------------------------------------------ mute + voice
-    async def set_muted(self, value) -> bool:
-        muted = (not self.muted) if value == "toggle" else bool(value)
-        if muted != self.muted:
-            self.muted = muted
+    @property
+    def muted(self) -> bool:
+        return self.user_muted or bool(self.dictation_pauses)
+
+    @muted.setter
+    def muted(self, value: bool) -> None:
+        self.user_muted = value
+
+    def _discard_mic_frames(self) -> None:
+        frames = getattr(self.voice, "mic_frames", None)
+        if frames is not None:
+            while not frames.empty():
+                frames.get_nowait()
+
+    async def _mute_state_changed(self, was_muted: bool) -> None:
+        if was_muted != self.muted:
+            self._discard_mic_frames()
             self._muted_since = time.monotonic()
-            self.osd(muted)
-            log.info("muted" if muted else "unmuted")
-            await self._broadcast_state()
-        if not muted:
+            message = "Paused for dictation" if self.dictation_pauses else None
+            self.osd(self.muted, message)
+        await self._broadcast_state()
+        if not self.muted:
             self._spawn(self._ensure_voice())
+
+    async def set_muted(self, value) -> bool:
+        was_muted = self.muted
+        self.user_muted = (not self.user_muted) if value == "toggle" else bool(value)
+        await self._mute_state_changed(was_muted)
         return self.muted
+
+    async def _superwhisper_status(self, active: bool | None, error: str | None) -> None:
+        was_muted = self.muted
+        key = "adapter:superwhisper"
+        self.dictation_monitor = error or ("active" if active else "idle")
+        if active is not None:
+            self._dictation_seen = True
+            if active:
+                self.dictation_pauses[key] = "Superwhisper"
+            else:
+                self.dictation_pauses.pop(key, None)
+        elif error == "connecting":
+            # Before the first snapshot, never assume that recording is idle.
+            self.dictation_pauses[key] = "Superwhisper"
+        elif key in self.dictation_pauses or self._dictation_seen:
+            # Failed monitoring must not silently resume. Latch manual mute;
+            # reconnection can clear the pause, but needs an explicit unmute.
+            self.user_muted = True
+            if key in self.dictation_pauses:
+                self.dictation_pauses[key] = "Superwhisper (status unavailable)"
+        await self._mute_state_changed(was_muted)
+
+    async def acquire_dictation(self, source: str) -> str:
+        if not isinstance(source, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}", source):
+            raise ValueError("source must be 1–64 letters, numbers, spaces, dots, underscores or hyphens")
+        if len(self.dictation_pauses) >= 128:
+            raise ValueError("too many dictation pauses")
+        token = str(uuid.uuid4())
+        was_muted = self.muted
+        self.dictation_pauses[token] = source
+        await self._mute_state_changed(was_muted)
+        return token
+
+    async def release_dictation(self, token: str) -> None:
+        if not isinstance(token, str) or token.startswith("adapter:") or token not in self.dictation_pauses:
+            raise ValueError("unknown dictation token")
+        was_muted = self.muted
+        del self.dictation_pauses[token]
+        await self._mute_state_changed(was_muted)
 
     async def _ensure_voice(self) -> None:
         async with self._voice_lock:
@@ -360,8 +429,8 @@ class Daemon:
 
     def _mute_after_failure(self, message: str) -> None:
         """Never leave the user unmuted with nothing listening: mute, and say why."""
-        if not self.muted:
-            self.muted = True
+        if not self.user_muted:
+            self.user_muted = True
             self._muted_since = time.monotonic()
             self.osd(True, message)
 
@@ -682,6 +751,12 @@ class Daemon:
                 return {"ok": True, **self.snapshot()}
             if cmd == "history":
                 return {"ok": True, "items": list(self.history)}
+            if cmd == "dictation_acquire":
+                token = await self.acquire_dictation(req.get("source"))
+                return {"ok": True, "token": token, "muted": self.muted}
+            if cmd == "dictation_release":
+                await self.release_dictation(req.get("token"))
+                return {"ok": True, "muted": self.muted}
             if cmd == "mute":
                 return {"ok": True, "muted": await self.set_muted(req.get("value", "toggle"))}
             if cmd == "set_model":

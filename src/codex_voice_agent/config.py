@@ -51,6 +51,7 @@ class Config:
     # mute when the user says "mute yourself" / "stop listening" / "go to sleep"
     voice_mute_command: bool = True
     # check GitHub once a day for a newer release and say so in the panel
+    dictation_auto_pause: bool = True
     check_updates: bool = True
     problems: list[str] = field(default_factory=list)  # config errors, shown in the panel
 
@@ -96,7 +97,7 @@ class Config:
         idle = take("idle_voice_minutes", (int, float))
         if idle is not None:
             cfg.idle_voice_minutes = max(0.0, float(idle))
-        for key in ("echo_cancel", "osd", "voice_mute_command", "check_updates"):
+        for key in ("echo_cancel", "osd", "voice_mute_command", "check_updates", "dictation_auto_pause"):
             value = take(key, bool)
             if value is not None:
                 setattr(cfg, key, value)

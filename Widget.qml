@@ -155,7 +155,9 @@ Panel {
             bordered: true
             selected: root.micState === "listening"
             iconText: root.micState === "listening" ? Model.GLYPH_MIC : Model.GLYPH_MIC_OFF
-            text: root.micState === "listening" ? "Mute" : "Unmute"
+            text: root.st.dictationPauses && root.st.dictationPauses.length
+              ? (root.st.userMuted ? "Resume after dictation" : "Stay muted")
+              : (root.micState === "listening" ? "Mute" : "Unmute")
             tooltipText: "Toggle listening (your mute key, a right-click on the bar icon, or M here)"
             onClicked: root.svc.toggleMute()
           }

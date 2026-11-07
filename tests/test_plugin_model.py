@@ -108,3 +108,11 @@ def test_update_text_only_when_a_newer_release_is_known():
     assert js("updateText({version: '2026.11.6'})") == ""
     assert js("updateText({version: '2026.11.6', update: {version: '2026.12.1', url: 'https://x'}})") == \
         "Codex Voice Agent 2026.12.1 is available (you have 2026.11.6)."
+
+
+def test_dictation_pause_explains_resume_and_manual_mute():
+    st = {**ST, 'muted': True, 'dictationPauses': ['Superwhisper'], 'userMuted': False}
+    assert 'paused for Superwhisper' in js(f'tooltip(true, {json.dumps(st)})')
+    assert 'resumes afterward' in js(f'statusLine(true, {json.dumps(st)})')
+    st['userMuted'] = True
+    assert 'manually muted' in js(f'statusLine(true, {json.dumps(st)})')
