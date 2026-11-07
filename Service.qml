@@ -112,6 +112,7 @@ Item {
   function sendText(t) { return t && t.trim() ? send({ cmd: "send", text: t.trim() }) : false }
   function newSession() { send({ cmd: "new_session" }) }
   function approve(reviewId) { send({ cmd: "approve_denied", reviewId: reviewId }) }
+  function setDictationAutoPause(v) { send({ cmd: "set_dictation_auto_pause", value: !!v }) }
   function setReplyCard(v) { send({ cmd: "set_reply_card", value: !!v }) }
   function refreshInputs() { send({ cmd: "list_inputs" }) }
   function setInput(id) { send({ cmd: "set_input", device: id ? id : null }) }

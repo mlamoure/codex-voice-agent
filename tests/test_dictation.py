@@ -180,3 +180,53 @@ def test_watcher_terminates_child_on_cancel(tmp_path):
         result = await asyncio.wait_for(asyncio.gather(task, return_exceptions=True), 3)
         assert isinstance(result[0], asyncio.CancelledError)
     asyncio.run(run())
+
+
+def test_panel_preference_persistence_and_runtime_monitor(tmp_path, monkeypatch):
+    saved = tmp_path / 'state.json'
+    original_save = State.save
+    monkeypatch.setattr(State, 'save', lambda self: original_save(self, saved))
+    stopped = asyncio.Event()
+    async def watcher(report):
+        try:
+            await asyncio.Future()
+        finally:
+            stopped.set()
+    monkeypatch.setattr('codex_voice_agent.daemon.watch_superwhisper', watcher)
+    monkeypatch.setattr('codex_voice_agent.daemon.shutil.which', lambda name: '/usr/bin/superwhisper')
+    async def run():
+        d = daemon()
+        await d.set_muted(False)
+        await d.set_dictation_auto_pause(True)
+        await asyncio.sleep(0)
+        assert State.load(saved).dictation_auto_pause is True
+        assert d.dictation_auto_pause and d._dictation_task and d.muted
+        await d._superwhisper_status(False, None)
+        assert not d.muted
+        token = await d.acquire_dictation('Another tool')
+        await d._superwhisper_status(True, None)
+        await d.set_dictation_auto_pause(False)
+        assert stopped.is_set() and d._dictation_task is None
+        assert d.muted and d.user_muted and token in d.dictation_pauses
+        assert d.dictation_monitor == 'disabled'
+        assert State.load(saved).dictation_auto_pause is False
+        await d.release_dictation(token)
+        assert d.muted
+        d2 = Daemon(Config(dictation_auto_pause=True), State.load(saved))
+        assert not d2.dictation_auto_pause
+    asyncio.run(run())
+
+
+def test_setting_save_failure_preserves_live_preference(monkeypatch):
+    def fail(self):
+        raise OSError('disk full')
+    monkeypatch.setattr(State, 'save', fail)
+    async def run():
+        d = daemon()
+        with pytest.raises(OSError):
+            await d.set_dictation_auto_pause(True)
+        assert d.state.dictation_auto_pause is None
+        assert not d.dictation_auto_pause and d._dictation_task is None
+        with pytest.raises(ValueError):
+            await d.set_dictation_auto_pause('true')
+    asyncio.run(run())

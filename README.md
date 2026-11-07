@@ -37,7 +37,7 @@ tells you the answer out loud. A small face in the bar always shows whether it i
   words and a live visualizer of its voice. It stays hidden over fullscreen windows.
 
   ![The reply card with the voice visualizer](docs/screenshots/reply-card.png)
-- **Panel** (left-click the icon): status, mute, **Model** and **Thinking** level, **Microphone**,
+- **Panel** (left-click the icon): status, mute, **Model** and **Thinking** level, a **Settings** view for microphone, automatic dictation pause and reply-card preferences,
   the session history (what you said, what Codex ran, its answers, safety-review decisions),
   a box to type a request, **New session**, and **Open in terminal** (`codex resume` this
   session). The cursor starts in the request box, so you can open the panel and type; Escape
@@ -153,8 +153,11 @@ change the same choice. A temporary pause never cancels a Codex task. The agent 
 speak a reply, just as when manually muted.
 
 One backend watcher runs `superwhisper status --bar --follow`; it does not change shortcuts,
-read dictation history, or depend on a bar widget or monitor layout. Disable automatic
-monitoring with `dictation_auto_pause = false` in config.toml and restart the service.
+read dictation history, or depend on a bar widget or monitor layout. Use **Settings → Automatically pause for dictation** to change automatic monitoring
+immediately, without restarting Codex. The choice survives restarts and overrides
+`dictation_auto_pause` in config.toml; the file supplies the default until you make a UI choice.
+Turning it off during a dictation pause leaves the agent manually muted. Explicit acquire/release
+hooks still work when automatic detection is off.
 The panel/state output reports the monitor's status. Missing Superwhisper leaves normal
 manual operation available. A broken status stream latches manual mute; reconnecting alone
 will not turn the microphone back on. Re-enable listening explicitly after recovery.
@@ -203,7 +206,12 @@ confirming capture has stopped. Lost tokens require restarting the voice-agent s
 starts muted. A service restart invalidates old tokens; it never automatically restores listening.
 This API orders *future* microphone transmission; it cannot retract audio already in flight.
 
-**Choosing a microphone:** the panel's **Microphone** list starts with *System default (…)*,
+**Settings:** open **⚙ Settings** in the panel. Model and Thinking stay visible.
+Microphone, automatic dictation pause, reply-card visibility, version and update details
+live here. **Back** returns to the conversation without discarding your draft or scroll position.
+Escape closes an open dropdown first, then returns from Settings, then closes the panel.
+
+**Choosing a microphone:** **Settings → Microphone** starts with *System default (…)*,
 which follows whatever input your system uses. Pick another device to override it; the choice
 is remembered and applied immediately.
 
@@ -251,7 +259,7 @@ osd = true                           # on-screen messages when muting and unmuti
 voice_mute_command = true            # "mute yourself" / "stop listening" mutes the agent
 codex_command = ["codex"]            # how to run Codex, if it is not on the service's PATH
 check_updates = true                 # check GitHub once a day for a newer release
-dictation_auto_pause = true          # automatically pause for Superwhisper Linux
+dictation_auto_pause = true          # default; a saved Settings choice overrides it
 ```
 
 ## Command line

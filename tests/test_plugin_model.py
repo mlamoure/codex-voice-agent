@@ -116,3 +116,11 @@ def test_dictation_pause_explains_resume_and_manual_mute():
     assert 'resumes afterward' in js(f'statusLine(true, {json.dumps(st)})')
     st['userMuted'] = True
     assert 'manually muted' in js(f'statusLine(true, {json.dumps(st)})')
+
+
+def test_dictation_settings_status():
+    assert js('dictationStatus({})') == 'Backend unavailable'
+    assert js('dictationStatus({dictationAutoPause:false})') == 'Automatic detection off'
+    assert js('dictationStatus({dictationAutoPause:true,dictationMonitor:"not installed"})') == 'No supported app detected'
+    assert 'ready' in js('dictationStatus({dictationAutoPause:true,dictationMonitor:"idle"})')
+    assert js('dictationStatus({dictationAutoPause:true,dictationMonitor:"broken"})') == 'Monitoring unavailable'
