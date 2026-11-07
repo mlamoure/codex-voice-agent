@@ -48,6 +48,12 @@ Assistant workflow for this repo. User docs are in README.md.
   nested-bracket alt) and HTML `<img>`, `background` attributes and CSS backgrounds (probed with
   qml6). Codex text is therefore `PlainText`, or `RichText` only from `render.markdown_html`.
 - Unix socket paths must be < 108 chars (use `$XDG_RUNTIME_DIR` in tests/harnesses).
+- Panel keyboard focus: `KeyboardPanel` primes `WlrKeyboardFocus.Exclusive` for 75 ms, then
+  `OnDemand`, which Hyprland keeps only while the pointer is over the panel. With the bar on
+  another output (OmacVM's `NOTCH`), a click leaves the pointer there and focus falls back to the
+  app window, so `Widget.qml` re-holds Exclusive until the pointer reaches the panel. Reproduce
+  with the pointer on the bar + `omarchy-shell shell summon mlamoure.codex-voice-agent '{}'`; ydotool
+  clicks never reach the NOTCH output.
 - In some macOS-hosted VMs a Mac keyboard's record/dictation key and fn+F5 both arrive as plain
   `KEY_F5`, so binding F5 is the only way to use that key.
 

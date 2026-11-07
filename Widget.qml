@@ -1,6 +1,7 @@
 import QtQuick 6.11 // Qt 6.12's own Color would hide Omarchy's
 import QtQuick.Controls
 import Quickshell
+import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
 
@@ -24,7 +25,24 @@ Panel {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
+  // Keep keyboard focus when the panel is opened from a bar on another output. KeyboardPanel
+  // takes focus exclusively for a moment and then switches to on-demand, which Hyprland only
+  // honours while the pointer is over the panel. When the bar lives on a different output
+  // (OmacVM's notch display), the pointer is not, so focus would fall back to the app window
+  // and typing would go there. In that case hold exclusive focus until the pointer reaches
+  // the panel. Where focus is kept anyway (the usual single-output bar) nothing changes.
+  property bool holdFocus: false
+  property bool pointerVisited: false
+  readonly property bool panelActive: !!input.Window.active
+  onPanelActiveChanged: {
+    if (!panelActive && opened && panel.focusPrimed && !pointerVisited) {
+      holdFocus = true
+      Qt.callLater(function() { if (root.opened) panel.focusTarget.forceActiveFocus() })
+    }
+  }
   onOpenedChanged: if (opened) {
+    holdFocus = false
+    pointerVisited = false
     if (svc) svc.refreshInputs()
     Qt.callLater(function() { history.positionViewAtEnd() })
   }
@@ -66,6 +84,8 @@ Panel {
     open: root.opened
     // Open straight into the "Ask Codex" field; Escape there closes the panel.
     focusTarget: root.connected ? input : keyCatcher
+    WlrLayershell.keyboardFocus: !open ? WlrKeyboardFocus.None
+      : (focusPrimed && !root.holdFocus ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive)
     contentWidth: panel.fittedContentWidth(Style.space(440))
     contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(640))
 
@@ -74,6 +94,10 @@ Panel {
       anchors.fill: parent
       blocked: modelDrop.popupOpen || effortDrop.popupOpen || micDrop.popupOpen || input.activeFocus
       onCloseRequested: root.close()
+
+      HoverHandler {
+        onHoveredChanged: if (hovered) { root.pointerVisited = true; root.holdFocus = false }
+      }
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onTextKey: function(t) {
         var key = t.toLowerCase()
