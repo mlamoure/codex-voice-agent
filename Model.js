@@ -30,6 +30,7 @@ function tooltip(connected, st) {
   var mic = micState(connected, st)
   if (mic === "off") return "Codex Voice Agent: not running"
   var parts = ["Codex Voice Agent: " + (mic === "listening" ? "listening" : "muted")]
+  if (st.dictationPauses && st.dictationPauses.length) parts.push("paused for " + st.dictationPauses.join(", "))
   if (st.voice === "connecting") parts.push("connecting voice…")
   else if (st.voice === "error") parts.push("voice failed")
   if (st.working) parts.push("working")
@@ -40,6 +41,8 @@ function tooltip(connected, st) {
 function statusLine(connected, st) {
   var mic = micState(connected, st)
   if (mic === "off") return "Not running — start it with: systemctl --user start codex-voice-agent"
+  if (st.dictationPauses && st.dictationPauses.length) return "Paused for " + st.dictationPauses.join(", ") + (st.userMuted ? " · manually muted" : " · resumes afterward")
+  if (st.dictationMonitor && ["disabled", "not installed", "idle", "active"].indexOf(st.dictationMonitor) < 0) return "Dictation monitoring unavailable · " + (st.userMuted ? "muted" : "manual control")
   if (mic === "muted" && !st.muted) return "Voice disconnected — mute and unmute to reconnect"
   if (mic === "muted") return st.working ? "Muted · Codex is working" : "Muted — it can't hear you"
   if (st.voice === "connecting") return "Connecting voice…"
