@@ -40,11 +40,15 @@ tells you the answer out loud. A small face in the bar always shows whether it i
 - **Panel** (left-click the icon): status, mute, **Model** and **Thinking** level, **Microphone**,
   the session history (what you said, what Codex ran, its answers, safety-review decisions),
   a box to type a request, **New session**, and **Open in terminal** (`codex resume` this
-  session).
+  session). The cursor starts in the request box, so you can open the panel and type; Escape
+  closes it.
 
   ![The panel: status, mute, model, thinking level and microphone](docs/screenshots/panel.png)
 - **Echo cancellation** on the microphone, so the agent does not hear itself through your
   speakers (or a video playing in the background).
+- **Update notices.** Once a day it checks GitHub for a newer release. When there is one, the
+  panel says so (with links to the release notes and the update steps) and you get one desktop
+  notification per new version. Nothing is downloaded or installed for you.
 
 ## Requirements
 
@@ -93,6 +97,22 @@ The binding goes into `~/.config/hypr/bindings.lua` inside a clearly marked bloc
 installer keeps on later runs and removes with `--key none` or `--uninstall`.
 
 `./install.sh --backend-only` installs just the backend service, whatever folder it runs from.
+
+### Updating
+
+The panel shows when a newer release is out. To update:
+
+```bash
+# marketplace install
+omarchy plugin update mlamoure.codex-voice-agent
+~/.config/omarchy/plugins/mlamoure.codex-voice-agent/install.sh
+
+# clone install
+cd codex-voice-agent && git pull && ./install.sh
+```
+
+`omarchy plugin update` only refreshes the bar plugin; the `install.sh` run updates the backend
+service and restarts it.
 
 ### Uninstall
 
@@ -149,6 +169,8 @@ Old sessions remain available with `codex resume`.
   writes, so the reply card shows answers as plain text, and the panel shows Codex's Markdown
   only after the backend has rendered it with every image replaced by its description and raw
   HTML shown as text. Links open only when you click them, and only `http(s)` links.
+- **Update check.** Once a day the service sends one anonymous HTTPS request to the GitHub API
+  (`api.github.com`) for the latest release. Turn it off with `check_updates = false`.
 - **The bar plugin runs unsandboxed** inside `omarchy-shell`, like every Omarchy plugin. Read
   the code before installing it.
 
@@ -167,6 +189,7 @@ voice = "marin"                      # a realtime voice name (default: Codex's)
 osd = true                           # on-screen messages when muting and unmuting
 voice_mute_command = true            # "mute yourself" / "stop listening" mutes the agent
 codex_command = ["codex"]            # how to run Codex, if it is not on the service's PATH
+check_updates = true                 # check GitHub once a day for a newer release
 ```
 
 ## Command line

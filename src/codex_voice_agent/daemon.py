@@ -26,7 +26,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import __version__
+from . import __version__, update
 from .appserver import AppServer, AppServerError
 from .render import markdown_html
 from .audio import peak, spectrum_bands
@@ -39,6 +39,8 @@ MAX_REQUEST = 1 << 20       # longest accepted control-socket line (bytes)
 SPEAKING_HOLD = 0.35        # seconds of quiet before "speaking" ends
 SPECTRUM_INTERVAL = 1 / 30  # visualizer frame rate
 LOUD = 0.012                # peak level that counts as the agent speaking
+UPDATE_FIRST_CHECK = 60      # seconds after start (the network may still be coming up)
+UPDATE_INTERVAL = 24 * 3600  # then once a day
 DELEGATION_RE = re.compile(r"<realtime_delegation>.*?<input>(.*?)</input>", re.S)
 
 # Spoken mute commands. The voice model cannot mute the app itself (it would only
@@ -124,6 +126,7 @@ class Daemon:
         self.models: list[dict] = []
         self.codex_version: str | None = None
         self.warnings: list[str] = []
+        self.available_update: dict | None = None  # {"version", "url"} of a newer release, if any
 
         self.muted = True
         self.voice = None
@@ -155,6 +158,8 @@ class Daemon:
             self._spawn(asyncio.to_thread(importlib.import_module, "codex_voice_agent.voice"))
         tasks = [asyncio.create_task(self._supervise_codex()),
                  asyncio.create_task(self._tick())]
+        if self.config.check_updates:
+            tasks.append(asyncio.create_task(self._check_updates()))
         await self._stopping.wait()
         for task in tasks:
             task.cancel()
@@ -253,6 +258,37 @@ class Daemon:
             self._spawn(self._ensure_voice())
         await self._broadcast_state()
 
+    async def _check_updates(self) -> None:
+        """Once a day: is there a newer release? Shown in the panel; one desktop notification
+        per new version (remembered across restarts)."""
+        await asyncio.sleep(UPDATE_FIRST_CHECK)
+        while True:
+            latest = await asyncio.to_thread(update.latest_release)
+            if latest and update.is_newer(latest["version"]):
+                if latest != self.available_update:
+                    self.available_update = latest
+                    log.info("update available: %s", latest["version"])
+                    await self._broadcast_state()
+                if self.state.notified_update != latest["version"]:
+                    self.state.notified_update = latest["version"]
+                    self.state.save()
+                    self.notify_update(latest)
+            await asyncio.sleep(UPDATE_INTERVAL)
+
+    def notify_update(self, latest: dict) -> None:
+        _osd_children[:] = [p for p in _osd_children if p.poll() is None]
+        if not shutil.which("notify-send"):
+            return
+        try:
+            _osd_children.append(subprocess.Popen(
+                ["notify-send", "-a", "Codex Voice Agent", "-i", "software-update-available",
+                 f"Codex Voice Agent {latest['version']} is available",
+                 f"You have {__version__}. See the panel for how to update."],
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                start_new_session=True))
+        except OSError as exc:
+            log.debug("notify-send failed: %s", exc)
+
     # ------------------------------------------------------------------ snapshot
     def snapshot(self) -> dict:
         return {
@@ -274,6 +310,7 @@ class Daemon:
             "input": self.state.input,
             "permissions": self.config.permissions,
             "warnings": self.warnings,
+            "update": self.available_update,
         }
 
     # ------------------------------------------------------------------ mute + voice

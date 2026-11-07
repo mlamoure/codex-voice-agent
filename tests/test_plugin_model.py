@@ -102,3 +102,9 @@ def test_shell_quote_neutralises_metacharacters():
     quoted = js(f"shellQuote({json.dumps(nasty)})")
     out = subprocess.run(["bash", "-c", f"printf %s {quoted}"], capture_output=True, text=True).stdout
     assert out == nasty
+
+
+def test_update_text_only_when_a_newer_release_is_known():
+    assert js("updateText({version: '2026.11.6'})") == ""
+    assert js("updateText({version: '2026.11.6', update: {version: '2026.12.1', url: 'https://x'}})") == \
+        "Codex Voice Agent 2026.12.1 is available (you have 2026.11.6)."

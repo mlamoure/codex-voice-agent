@@ -50,6 +50,8 @@ class Config:
     osd: bool = True
     # mute when the user says "mute yourself" / "stop listening" / "go to sleep"
     voice_mute_command: bool = True
+    # check GitHub once a day for a newer release and say so in the panel
+    check_updates: bool = True
     problems: list[str] = field(default_factory=list)  # config errors, shown in the panel
 
     @classmethod
@@ -94,7 +96,7 @@ class Config:
         idle = take("idle_voice_minutes", (int, float))
         if idle is not None:
             cfg.idle_voice_minutes = max(0.0, float(idle))
-        for key in ("echo_cancel", "osd", "voice_mute_command"):
+        for key in ("echo_cancel", "osd", "voice_mute_command", "check_updates"):
             value = take(key, bool)
             if value is not None:
                 setattr(cfg, key, value)
@@ -151,6 +153,7 @@ class State:
     effort: str | None = None
     reply_card: bool = True
     input: str | None = None  # microphone (PipeWire node name); None = system default
+    notified_update: str | None = None  # newest release already announced with a notification
 
     @classmethod
     def load(cls, path: Path = STATE_FILE) -> "State":
@@ -165,11 +168,13 @@ class State:
             value = data.get(key)
             return value if isinstance(value, str) and value else None
         return cls(model=text("model"), effort=text("effort"),
-                   reply_card=data.get("reply_card") is not False, input=text("input"))
+                   reply_card=data.get("reply_card") is not False, input=text("input"),
+                   notified_update=text("notified_update"))
 
     def save(self, path: Path = STATE_FILE) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps({"model": self.model, "effort": self.effort,
-                                   "reply_card": self.reply_card, "input": self.input}, indent=2))
+                                   "reply_card": self.reply_card, "input": self.input,
+                                   "notified_update": self.notified_update}, indent=2))
         tmp.replace(path)

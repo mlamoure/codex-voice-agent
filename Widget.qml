@@ -64,7 +64,8 @@ Panel {
     owner: root
     bar: root.bar
     open: root.opened
-    focusTarget: keyCatcher
+    // Open straight into the "Ask Codex" field; Escape there closes the panel.
+    focusTarget: root.connected ? input : keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(440))
     contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(640))
 
@@ -192,13 +193,47 @@ Panel {
           }
         }
 
+        // ---------------------------------------------------- update available
+        Column {
+          id: updateNotice
+          width: parent.width
+          spacing: Style.space(4)
+          visible: Model.updateText(root.st) !== ""
+          Text {
+            width: parent.width
+            text: Model.GLYPH_UPDATE + "  " + Model.updateText(root.st)
+            textFormat: Text.PlainText
+            color: root.accent
+            wrapMode: Text.Wrap
+            font.family: Style.font.family
+            font.pixelSize: Style.font.bodySmall
+          }
+          Row {
+            spacing: Style.space(8)
+            Button {
+              bordered: true
+              text: "Release notes"
+              onClicked: {
+                var url = root.st.update && root.st.update.url
+                if (Model.isSafeLink(url)) Qt.openUrlExternally(url)
+              }
+            }
+            Button {
+              bordered: true
+              text: "How to update"
+              onClicked: Qt.openUrlExternally(Model.UPDATE_HELP_URL)
+            }
+          }
+        }
+
         PanelSeparator { width: parent.width }
 
         // ---------------------------------------------------- history
         ListView {
           id: history
           width: parent.width
-          height: Style.space(360)
+          // the panel has a maximum height: the update notice takes its room from the history
+          height: Style.space(360) - (updateNotice.visible ? updateNotice.height + column.spacing : 0)
           clip: true
           spacing: Style.space(8)
           boundsBehavior: Flickable.StopAtBounds
@@ -268,7 +303,7 @@ Panel {
             placeholderText: "Ask Codex…"
             maximumLength: 20000
             onAccepted: if (root.svc.sendText(text)) text = ""
-            Keys.onEscapePressed: { input.focus = false; keyCatcher.forceActiveFocus() }
+            Keys.onEscapePressed: root.close()
           }
           Button {
             id: sendButton

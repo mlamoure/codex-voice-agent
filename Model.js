@@ -10,6 +10,9 @@ var GLYPH_SEND = "\u{F048A}"    // nf-md-send
 var GLYPH_NEW = "\u{F0415}"     // nf-md-plus
 var GLYPH_TERMINAL = "\u{F018D}" // nf-md-console
 var GLYPH_WARN = "\u{F0026}"    // nf-md-alert
+var GLYPH_UPDATE = "\u{F06B0}"  // nf-md-update
+
+var UPDATE_HELP_URL = "https://github.com/mlamoure/codex-voice-agent#updating"
 
 // The one question the bar icon must always answer: is it listening?
 // "listening": unmuted and the voice link is up (or coming up)
@@ -135,4 +138,10 @@ function isSafeLink(url) {
 // One argument for `bash -c`, safe whatever it contains.
 function shellQuote(s) {
   return "'" + String(s).replace(/'/g, "'\\''") + "'"
+}
+
+// The panel's notice when the backend found a newer release ("" when there is none).
+function updateText(st) {
+  if (!st || !st.update || !st.update.version) return ""
+  return "Codex Voice Agent " + st.update.version + " is available (you have " + (st.version || "?") + ")."
 }
