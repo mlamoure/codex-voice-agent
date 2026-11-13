@@ -74,3 +74,16 @@ def test_text_from_codex_never_renders_html():
         for block in qml_text_blocks(qml.read_text()):
             if re.search(r"cardTextFull|modelData", block):
                 assert "textFormat:" in block, f"{qml.name}: {block.splitlines()[1].strip()}"
+
+
+def test_widget_reaches_the_backend_without_the_shell_service():
+    # Omarchy 4.5+ gives widgets on a replacement bar (a cloned bar, e.g. OmacVM's notch bar)
+    # a shell without serviceFor(); the widget must then link to the daemon itself.
+    widget = (ROOT / "Widget.qml").read_text()
+    assert re.search(r"svc:\s*shellSvc\s*\|\|\s*ownBackend\.item", widget)
+    assert re.search(r"active:\s*!!root\.bar\s*&&\s*!root\.shellSvc", widget)
+    assert "Backend {" in widget
+    service = (ROOT / "Service.qml").read_text()
+    assert re.search(r"^Backend\s*\{", service, re.M), "Service.qml must be a Backend"
+    backend = (ROOT / "Backend.qml").read_text()
+    assert "codex-voice-agent.sock" in backend

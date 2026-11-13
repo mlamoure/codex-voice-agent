@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "mlamoure.codex-voice-agent",
   "name": "Codex Voice Agent",
-  "version": "2026.11.7.1",
+  "version": "2026.11.12",
   "author": "Mike Lamoureux",
   "license": "MIT",
   "description": "Voice-enabled Codex session: listening state in the bar, history and controls in the popup, and a top-right reply card while the agent answers.",
