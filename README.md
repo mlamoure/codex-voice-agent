@@ -286,6 +286,7 @@ codex-voice-agent daemon [-v]             the service itself
 | A warning about config.toml in the panel | A setting has a typo or the wrong type; that setting falls back to its default until fixed |
 | It does not hear you | Is it unmuted (accent face)? Is the right microphone selected? Test the device with `pw-record --target <device> test.wav` |
 | It hears itself / talks over itself | Make sure `echo_cancel` is on; use headphones in a very echoey room |
+| Grey face on a custom or cloned bar while the service runs | Update to 2026.11.12 or later: Omarchy 4.5 keeps services from widgets on replacement bars, and older releases needed the service |
 | Widget missing after install | `omarchy plugin enable <plugin-id> --section right`; QML errors are in `journalctl --user -t omarchy-shell` |
 
 Run the backend in the foreground with debug logs: `systemctl --user stop codex-voice-agent`,

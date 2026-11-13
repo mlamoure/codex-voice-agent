@@ -9,9 +9,11 @@ Assistant workflow for this repo. User docs are in README.md.
   the panel), `config.py`, `cli.py`.
 - Repository root = the omarchy-shell plugin `mlamoure.codex-voice-agent` (`service` +
   `bar-widget`): `manifest.json`, `*.qml`, `Model.js` (marketplace layout: one plugin, manifest at
-  the root). `Service.qml` is the single instance that owns the socket and the reply card;
-  `Widget.qml` exists once per monitor and only renders. Pure logic goes in `Model.js` (tested
-  with node). The ID is permanent once published: it lives in `manifest.json` and `Model.PLUGIN_ID`
+  the root). `Backend.qml` is the socket link (state, history, commands); `Service.qml` is the
+  single instance (a `Backend` plus the reply card); `Widget.qml` exists once per monitor and only
+  renders. On a replacement bar (any cloned bar, e.g. OmacVM's notch bar `$USER.bar`) Omarchy 4.5+
+  gives widgets a shell without `serviceFor()`, so `Widget.qml` then runs its own `Backend`. Pure
+  logic goes in `Model.js` (tested with node). The ID is permanent once published: it lives in `manifest.json` and `Model.PLUGIN_ID`
   (a test keeps them equal); `install.sh` OLD_IDS swaps earlier IDs in place.
 - `tests/` — pytest; `fake_codex.py` stands in for `codex` (logs every request).
 

@@ -13,8 +13,17 @@ Panel {
   id: root
   manageIpc: false
 
-  readonly property var svc: bar && bar.shell && typeof bar.shell.serviceFor === "function"
-                             ? bar.shell.serviceFor(Model.PLUGIN_ID) : null
+  // Omarchy's own bar hands the widget the shell service. A replacement bar (a cloned
+  // bar, such as OmacVM's notch bar) gets a shell without services, so the widget
+  // then keeps its own link to the backend; the reply card stays with the service.
+  readonly property var shellSvc: bar && bar.shell && typeof bar.shell.serviceFor === "function"
+                                  ? bar.shell.serviceFor(Model.PLUGIN_ID) : null
+  readonly property var svc: shellSvc || ownBackend.item
+  Loader {
+    id: ownBackend
+    active: !!root.bar && !root.shellSvc
+    sourceComponent: Component { Backend {} }
+  }
   readonly property bool connected: !!(svc && svc.connected)
   readonly property var st: svc ? svc.st : ({})
   readonly property string micState: svc ? svc.micState : "off"
